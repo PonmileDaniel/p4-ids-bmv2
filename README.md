@@ -225,4 +225,12 @@ action mirror_to_collector() {
 
 --- 
 
+
+cd /home/daniel/p4-ids-bmv2
+simple_switch_grpc \
+    --log-console \
+    --thrift-port 9090 \
+    --grpc-server-addr localhost:9559 \
+    build/simple_switch.json
+
 *Built with love for programmable networks.*
