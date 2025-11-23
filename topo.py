@@ -3,32 +3,32 @@
 # Requires: Mininet, BMv2 (simple_switch_grpc running externally)
 
 from mininet.net import Mininet
-from mininet.node import Controller, RemoteController
+from mininet.node import RemoteController
 from mininet.cli import CLI
 from mininet.log import setLogLevel, info
-from mininet.link import TCLink
+from mininet.link import Intf
 
 def p4Topology():
-    "Create a simple P4 topo: h1 -- s1(P4) -- h2"
-    net = Mininet(controller=RemoteController, link=TCLink)
-
-    info('*** Adding controller\n')
-    net.addController('c0', type='remote', ip='127.0.0.1', port=6653)  # Dummy; P4 uses gRPC
+    "Connect hosts to external P4 switch via veth pairs"
+    # We do NOT add a switch here because simple_switch_grpc is running externally
+    net = Mininet(controller=RemoteController)
 
     info('*** Adding hosts\n')
-    h1 = net.addHost('h1', ip='192.168.1.1/24')  # Attacker IP (add to bad_sources table)
-    h2 = net.addHost('h2', ip='192.168.1.2/24')  # Victim (web server)
+    h1 = net.addHost('h1', ip='192.168.1.1/24', mac='00:00:00:00:00:01')
+    h2 = net.addHost('h2', ip='192.168.1.2/24', mac='00:00:00:00:00:02')
 
-    info('*** Adding P4 switch (external BMv2)\n')
-    # s1 connects to BMv2 veth0 (h1) and veth1 (h2)
-    s1 = net.addSwitch('s1', cls=OVSSwitch, protocols='OpenFlow13')  # Fallback; replace with P4Switch wrapper if available
-
-    info('*** Creating links\n')
-    net.addLink(h1, s1, port1=1, port2=1)  # h1 to s1 port 1
-    net.addLink(h2, s1, port1=1, port2=2)  # h2 to s1 port 2
+    info('*** Connecting hosts to external P4 switch\n')
+    # h1 connects to veth2 (which plugs into switch port 0/veth0)
+    Intf('veth2', node=h1)
+    # h2 connects to veth3 (which plugs into switch port 1/veth1)
+    Intf('veth3', node=h2)
 
     info('*** Starting network\n')
     net.start()
+    
+    # Fix: Ensure ARP entries are set so hosts don't need to broadcast
+    h1.cmd('arp -s 192.168.1.2 00:00:00:00:00:02')
+    h2.cmd('arp -s 192.168.1.1 00:00:00:00:00:01')
 
     info('*** Running CLI\n')
     CLI(net)
